@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master, repo-upgrade]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff (PyPI)
+        run: pip install ruff
+
+      - name: Install torch (CPU wheel)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install remaining import dependencies
+        run: pip install numpy scikit-learn matplotlib
+
+      - name: Lint
+        run: ruff check src scripts
+
+      - name: Compile check
+        run: python -m compileall src scripts
+
+      - name: Import and forward-pass smoke test
+        run: |
+          PYTHONPATH=src python -c "
+          import torch
+          from eeg_classifier import models, data, train, evaluate, visualize
+
+          cnn = models.eeg_shallow_CNN()
+          out = cnn(torch.randn(1, 1, 12, 16, 22))
+          assert tuple(out.shape) == (1, 1, 4), f'CNN output shape {tuple(out.shape)} != (1, 1, 4)'
+
+          lstm = models.SimpleLSTM()
+          out = lstm(torch.randn(200, 8, 22))
+          assert tuple(out.shape) == (200, 8, 4), f'LSTM output shape {tuple(out.shape)} != (200, 8, 4)'
+
+          print('Smoke test OK: CNN', tuple(out.shape))
+          "

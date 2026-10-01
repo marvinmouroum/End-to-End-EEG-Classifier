@@ -18,8 +18,12 @@ from __future__ import annotations
 import math
 import pickle
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    import torch
 
 # NOTE: torch and scipy.io are imported lazily inside the functions that
 # need them so that visualization-only usage (numpy + matplotlib) does

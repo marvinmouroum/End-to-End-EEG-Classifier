@@ -18,7 +18,7 @@ __version__ = "0.1.0"
 __all__ = ["SimpleLSTM", "__version__", "eeg_shallow_CNN", "get_net"]
 
 
-def __getattr__(name: str):  # noqa: ANN202 - PEP 562 lazy exports
+def __getattr__(name: str):  # PEP 562 lazy exports
     if name in {"SimpleLSTM", "eeg_shallow_CNN", "get_net"}:
         # Lazy import: keeps numpy/matplotlib-only entry points
         # (e.g. eeg_classifier.visualize) usable without torch.
