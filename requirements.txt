@@ -1,0 +1,16 @@
+# Core numerical computing
+numpy
+scipy
+
+# Deep learning (PyTorch)
+torch
+torchvision
+
+# Classical ML (metrics, train/test splits)
+scikit-learn
+
+# Plotting
+matplotlib
+
+# Google Drive access (historical Colab workflow)
+pydrive
