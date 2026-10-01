@@ -1,73 +1,201 @@
-# BCI: Classifying motor task EEG signals using a combination of deep CNN and LSTM architectures
+# End-to-End-EEG-Classifier
 
-**EEG data is light weight, portable and cost efficient. It’s ability to read brain activity gives high potential for BCI applications. Classifying EEG data using traditional machine learning meth- ods has shown good results, however requires expensive pre- processing of the data. Deep Learning techniques outperform traditional ML methods when using an end-to-end approach. Tan et al. (1) converted EEG signals to 2D images classifying them with regular image recognition techniques. In medical image classification 3D convolution showed to be more reliable than 2D convolution (2). We reconstructed 3D images of the brain activity, passing them to a 3D CNN and as a mini movie to a LSTM. Results showed that this method is computational heavy to execute and does not receive better results than a sim- ple CNN architecture. However this technique could perform better when using 64 electrodes rather than 22, because the 3D image quality would be higher. The CNN-RNN combination re- ceived 50 - 60% accuracy, whereas the CNN showed up to 76%.**
+End-to-end classification of motor-imagery EEG with a 3D-CNN + LSTM pipeline in PyTorch.
 
-## Introduction
-Brain Computer Interfaces (BCI) have the potential to change how humans interact with machines. They provide a more efficient and intuitive interface by using language, gestures, eye-movement and even thoughts. The latter is based on the activity level of the brain. By reading the potential differ- ences in the brain using dry electroencephalography (EEG), motor behaviour imagery can be classified. Classifying EEG data using traditional machine learning (ML) methods has shown promising results (3). However these techniques re- quire expensive pre-processing of the data.  Deep Learn-  ing (DL) techniques are suitable for creating end-to-end so- lutions. The lack of free accessible EEG data hinders the creation of powerful DL networks. However because EEG data can be seen as a video stream of activity levels of the brain, a mixture of CNN and RNN seams to be applicable (4). Tan et al. (1) projected the activity of the electrodes into 2D images, resulting in a video of the brain activity. Histori- cally for high resolution image classification 3D convolution layers have been shown to yield better results (2). We explore the possibility to classify a CNN-LSTM artificial neural network on reconstructed 3D images based on the brain activity levels measured with EEG. This way the time dependency, as well as the spatial characteristics of the brain activity can be taken into account while classifying the the thoughts. With the emergence of additional EEG datasets, the importance of DL classifiers for BCI applications rises. This paper explores a unique way of classifying EEG data.
- 
-**Fig. 1. Brain Computer Interface.** BCI can be used to controll machines more efficient then ever before.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
+![PyTorch](https://img.shields.io/badge/framework-PyTorch-ee4c2c.svg)
 
-## Methodology
-**Dataset.** Datasets for DL applications are rare for EEG mea- surements. This is because experiments are expensive. Usu- ally a EEG session with a single subject may contain up to  a million different labeled data points. However the varia- tion between subjects is quite high. Different brains seem to operate in different manners. Since most datasets only con- tain a few subjects, the overall generalization is not ideal for real life applications and a calibration of the classifier would be necessary. Aznan et al. (5) showed that shallow CNN ar- chitectures could outperform deep architectures because of the lack of data in EEG applications. A new database ap- peared in 2018 (6), which contains 60 hours of different EEG experiments across 13 participants. The experiments can be classified in 4 groups:
+## TL;DR
 
-1.	CLA - Classic
-2.	HaLT - extended CLA
-3.	5F - finder movements
-4.	FreeForm - arbitrary movements
-5.	NoMT - similar to HaLT
+Instead of hand-crafted EEG feature engineering, this project treats brain activity as a
+3D voxel video: the 22 electrode channels of the
+[Kaya et al. (2018)](https://doi.org/10.1038/sdata.2018.211) CLA dataset are reconstructed
+into small 3D brain volumes and classified end to end with a 3D CNN, optionally combined
+with an LSTM over time. The result is a negative one: the plain 3D CNN alone reaches
+roughly 72 to 76 percent accuracy, while the CNN-LSTM combination stays at 50 to 60
+percent and is far slower to train. The main lesson is about cost: the 3D reconstruction
+expands the dataset to roughly 400 GB and about one hour of GPU time per epoch, which the
+modest accuracy does not justify.
 
-For this paper the simplest experimental design - the CLA - was chosen. The subjects stare at a screen, waiting for visual queues to act on. Possible states are to move the left hand, right hand, nothing or no impulse at all Fig. 2.
-The dataset comes in the form of raw EEG data waves. Dur- ing pre-processing the data was centered and zero meaned. Additionally, experimental breaks, the time before the offi- cial start and end phases of the experiment were erased. The positions of the 22 electrodes were reconstructed assuming the head is a 3-dimensional ellipsoid Fig. 1 with dimensions: a = 72,5 cm, b = 100 cm, c = 56 cm.
+## Pipeline
 
-x = a · cos θ · sin φ y = b · sin θ · sin φ
-z = c · cos θ
+![Pipeline: raw EEG to 3D voxel video to Conv3D encoder to LSTM to softmax](assets/pipeline.png)
 
-Assigning a voxel to every cm2 a 3D-image for every time step, a 3D video was reconstructed. The activation of the electrode at it’s position in space was converted into a gray- scale image and the neighbouring parts were interpolated to have a weaker activation - radiating from the the position of the electrode Fig. 3.
-There were 15 CLA experiments with roughly 700.000 data points at a sampling rate of 200. With over 10 million 3D im- ages with 400 Gbyte of memory after the 3D video creation. Half of the data was used for testing and the other half for validation.
-
-**Architecture.** EEG signals contain spatial as well as time dependent information since the activity of a brain region is a constant flow of alternating electrical potentials. At a suf- ficient sampling rate the time dependency can be evaluated. To leverage both, spatial and time dependent characteristics, a CNN-LSTM architecture is used. A larger batch of im- ages is convoluted and formed into a smaller batch of feature representation sequences. This batch of sequences is then classified by the LSTM network.
- 
-**Fig. 3. Example plot for brain activation.** 22 electrodes and their positions have been reconstructued and their activation value has been plotted in a gray scale between 0 and 1. A voltage value of 0 is equivalent to a 0.5 gray scale value. Around the 22 positions, interpolated values have been added, which decrease over time  by 1/r from the heat point. A total of 708 activation points, which contribute 16% to the overall 12x16x22 image, are plotted.
-
-**Convolutional Neural Network.** Different CNN architectures have been developed to classify imagery motor tasks, such as Conv1D (7), Conv2D-LSTM (4), Conv2D-GRU (1) and LSTM.
-This paper examines a new approach using a Conv3D-LSTM architecture. Prior to connecting the Conv3D net to the LSTM a classifier using only the CNN was tested with a result of 72 % accuracy across all subjects. These  results are comparable with the literature (7),(1). Relu activation function is used across all layers with batch normalization. 1x1x1 convolution is used repeatably with max pooling lay- ers. Weights were initialized with Xavier normalization. The 12x16x22 input image is convoluted into a 1x1x22 tensor.
-
-**Fig. 4. CNN encoder architecture** A 9 Layer 3D-CNN with max pooling (Blue) and output representation of the form 1x1x22
-The asymmetric input shape of the 3D-image requires asym- metric patting and step patterns, as well as asymmetric kernel sizes. Avoiding cubic inputs minimizes storage volume of the data and enables higher batch sizes. The presented architec- ture is convoluting to a 1x1x22 tensor, to directly compare the novel method to a regular LSTM connected directly to the sensor output data of the EEG apparatus. Periodic pooling used to reduce dimensionality. The kernel size is expected  to be less important than in regular image classification ar- chitectures, because the electrodes are not closely arranged. The raw CNN architectures were compared with more and less intermediate channels, 22 and 9, respectively, however 22 proved to be more efficient.
-
-**Recurrent Neural Network.** Approaching the problem from another angle resulted in the looking into recurrent neural networks as an architectural design idea. It was decided that based on the sequential manner of the data and that the classification of a motor movement was not based solely on one explicit reading of EEG signal at one given instant in time, rather a series of readings equated to a thought about motor movement, for this reason an RNN style network was decided upon. The idea was to extract the temporal features from the data set and use this to try and predict when a subject is about to think about doing some motor movement.
-Initially the idea of a RNN was to be adopted, but given the nature of the size of the data sets and taking into considera- tion the idea to move forward with the project in a real world scenario, a simple RNN was thrown out due to such problems as vanishing/exploding gradient which is a common prob- lems in RNNs. This coupled with the fact that to train the large data sets we need to back propagate through time could also result in very expensive computational needs (even trun- cated back propagation through time).
-Moving on from these downsides, the LSTM approach was adopted to mitigate the issue of exploding/vanishing gra- dients and issues surrounding BPTT. A Simple LSTM ap- proach was adopted, with input size of 22(as there were 22 channels from the electrodes) and hidden size of 6 (due to the limit amount of data). The hidden and cell states are both initialized with random numbers to begin with. Using the data loader, each entire subject was split up into mini batches, these mini batches were then broken down further into ten- sors of shape [time sequence, batch time sequence, channels] this is then what is fed into the LSTM network, then this is reconstructed sequentially upon output to match up with the labels.
-
-
-**Training.** The CNN is pretrained on the dataset with a test accuracy of 71%. After training the fully connected layer is removed and the LSTM is appended to the 1x22 dimensional feature vector output from the CNN. The CNN-LSTM net- work is trained with a cyclic learning rate E =  cos(i)e−4  and ADAM optimizer 1. The size of the entire dataset is roughly 400 Gbyte. Mini Batches of 4*200 samples are cho- sen, which is equivalent to 4 seconds of recording. The CNN will receive the entire batch for processing, whilst the LSTM will receive a batch of 4 sequences of length 200, which is equivalent to 4 sequences of 1 second recording. Loading the files is slow and the learning process therefor expensive. Ad- ditionally the sequences were selected in a manner that they start with a zero and end with a classifier value from 0 to
-3.	This way every sequence can be attributed to exactly one value - the last value of the sequence.
-The LSTM was trained by itself with a wide range of differ- ent hyper parameters and variable sizes of time sequences. Two approaches were conducted, matching all labels to all individually data points and a contrasting matching of labels to an entire time sequence. In the end matching a single label to a group of organized time sequences was opted for as this is more real world scenario.
-The model was trained in Google Colab with the PyTorch framework.
- 
-
-LR	Optim.	Mom.	WD	BS	Eps
-| cos(i)e−4|	ADAM	0.9	e−9	4 · 256	15
-
-**Table 1. Hyperparemeters for training of the CNN-LSTM architecture.** LR: Learn- ing Rate, Optim: Optimizer, Mom: Momentum, WD:Weight Decay, BS: Batch Size, Eps: Epochs
+- The 22 electrode positions are reconstructed on a head ellipsoid with semi-axes
+  a = 72.5, b = 100, c = 56 and mapped onto a `12 x 16 x 22` voxel grid.
+- Each frame is built by writing the electrode activations into the grid and
+  interpolating neighbors with a 1/r falloff.
+- The grid is asymmetric, so the network uses asymmetric kernel sizes, padding, and strides.
+- Training sequences span 200 frames (1 s at 200 Hz); each sequence carries exactly one
+  label, taken from its final frame.
+- The CNN is pretrained first, then its fully connected head is replaced by the LSTM on
+  the `1 x 1 x 22` feature vector, and the combined network is trained jointly.
+- The paper's runs used Adam with a cyclic learning rate |cos(i) x 1e-4|, momentum 0.9,
+  weight decay 1e-9, batches of 4 x 200-frame sequences, and 15 epochs.
 
 ## Results
-The CNN and LSTM classified every time step, whereas the combination classified the result of a sequence containing 200 time steps. This reduces the amount of targets labelled with 0 = ’no task given’. In general the label 0 dominates the dataset. Each subject is suspect to another score by the net- work. The tables below give an overview of the results.
-In general training time was the fastest with the LSTM and the longest with the CNN-LSTM combination. The long training time is due to the fact that the CNN uses the 3D re- constructed data, which is massive in size and needs to be loaded from the drive in small chunks while training. Other- wise RAM would explode and training would not be possible on Google Colab. The LSTM was trained directly on the raw data.
 
-## Discussion
-Our method uses a great amount of pre processing CPU time of the raw data in order to convert it into a 3D images. Additionally the RAM usage is 10 GBytes for a batch of 800 im- ages, which effectively is a batch of 4 sequences. The overall dataset size exploded to be 400/,GBytes in size and therefore could not be loaded into the ram, but needed to be dynami- cally loaded from the cloud storage. Storage is expensive and the run time is extremely diminished. Testing and training therefor is extremely slow and takes about 1 hour per epoch. Although theoretically we were hoping for better results, the results do not differ much from a regular LSTM trained on the raw data, or an CNN trained on the converted data. Both op- tions are faster, although the LSTM on raw data is the fastestoption.
-Comparing the 3D CNN trained on the pre processed data with the LSTM trained on the raw data shows an improve- ment of 2,6 % on average across all subjects. The contribu- tion of the spatial character to the classification seems to be a better classifier than the time dependency. The difference however is not big enough to make up for the cost in GPU time used to compute the results.
-The resolution of the images might not be high enough since the data set only contains 22 sensors instead of 64 in other data sets (1). Unless the correct hardware is locally available, we would not promote using out method on cloud services like Google’s Colab. We encountered several small errors when analyzing the dataset. It has no citations yet so we can- not be sure that the data is correctly labeled. Perhaps it might be interesting redoing this project on new upcoming data sets. The goal is to classify a movement before it happened by reading the brain activity. Time dependency taken into ac- count does not provide a better classifier than a simple CNN. The combination of both is more difficult to train and pro- vides no upgrade in performance.
+| Model | Input | Accuracy | Note |
+|---|---|---|---|
+| 3D CNN | voxel frames, `12 x 16 x 22` | ~72-76% | best model; up to 76.5% on one subject |
+| 3D CNN + LSTM | sequences of 4 x 200 voxel frames | ~50-60% | slowest to train, no gain over the CNN alone |
+| LSTM on raw EEG | raw 22-channel time series | ~70-72% | fastest to train; ~2.6 percentage points below the 3D CNN on average |
 
-## Bibliography
-1.	Chuanqi Tan, Fuchun Sun, Wenchang Zhang, Jianhua Chen, and Chunfang Liu. Multimodal classification with deep convolutional-recurrent neural networks for electroencephalography. Lecture Notes in Computer Science, page 767–776, 2017. ISSN 1611-3349. doi: 10.1007/ 978-3-319-70096-0_78.
-2.	Jens Kleesiek, Gregor Urban, Alexander Hubert, Daniel Schwarz, Klaus Maier-Hein, Martin Bendszus, and Armin Biller. Deep mri brain extraction: A 3d convolutional neural network for skull stripping. NeuroImage, 129:460 – 469, 2016. ISSN 1053-8119. doi: https://doi.org/10. 1016/j.neuroimage.2016.01.024.
-3.	Hafeez Ullah Amin, Wajid Mumtaz, Ahmad Rauf Subhani, Mohamad Naufal Mohamad Saad, and Aamir Saeed Malik. Classification of eeg signals based on pattern recognition approach. Frontiers in Computational Neuroscience, 11:103, 2017. ISSN 1662-5188. doi: 10.3389/ fncom.2017.00103.
-4.	P. Xia, J. Hu, and Y. Peng. EMG-Based Estimation of Limb Movement Using Deep Learning With Recurrent Convolutional Neural Networks. Artif Organs, 42(5):E67–E77, May 2018.
-5.	Nik Khadijah Nik Aznan, Stephen Bonner, Jason D. Connolly, Noura Al Moubayed, and Toby P. Breckon. On the classification of ssvep-based dry-eeg signals via convolutional neu- ral networks. CoRR, abs/1805.04157, 2018.
-6.	Murat Kaya, Mustafa Kemal Binli, Erkan Ozbay, Hilmi Yanar, and Yuriy Mishchenko. A large electroencephalographic motor imagery dataset for electroencephalographic brain computer interfaces. Scientific Data, 5:180211, 10 2018. doi: 10.1038/sdata.2018.211.
-7.	Nik Khadijah Nik Aznan, Stephen Bonner, Jason D. Connolly, Noura Al Moubayed, and Toby P. Breckon. On the classification of ssvep-based dry-eeg signals via convolutional neu- ral networks. CoRR, abs/1805.04157, 2018.
+All numbers come from the accompanying paper ([docs/paper.pdf](docs/paper.pdf)). The
+per-subject tables are reproduced in [results/results.md](results/results.md).
 
+## Brain activation
 
+![Reconstructed voxel frame with 22 electrode positions and interpolated neighbors](assets/brain_activation.png)
 
+One reconstructed frame: the 22 electrodes are placed on the ellipsoid-derived grid
+positions and their activation is spread to surrounding voxels with a 1/r falloff, shown
+here as a grayscale 3D scatter. The figure was rendered with
+`eeg_classifier.visualize` (synthetic demo activation).
+
+## Architecture
+
+![9-layer Conv3D encoder with kernel, padding, and stride annotations](assets/architecture_cnn.png)
+
+The encoder is a 9-layer 3D CNN with batch normalization, ReLU, and periodic max pooling.
+Because the input grid is non-cubic, kernel size, padding, and stride differ per axis;
+the stack reduces each `12 x 16 x 22` frame to a `1 x 1 x 22` feature vector.
+
+## Setup and usage
+
+```bash
+pip install -r requirements.txt
+```
+
+A GPU is recommended for training the CNN models, and the 3D-preprocessed dataset is
+large (roughly 400 GB for the full expansion, ~40 MB per raw session file).
+
+### Download the dataset
+
+```bash
+python scripts/download_data.py             # all 17 CLA sessions into data/raw/
+python scripts/download_data.py --limit 1   # smoke test with a single file
+```
+
+The script pulls the public Figshare deposition of the Kaya et al. dataset and verifies
+MD5 checksums. Options: `--out` (target directory, default `data/raw`), `--paradigm`
+(`CLA` by default; also `5F`, `HALT`, `FREEFORM`, `NOMT`, or `all`), `--limit`,
+`--collection`, and `--no-verify`.
+
+### Preprocess into voxel batches
+
+```bash
+PYTHONPATH=src python -c "from eeg_classifier.data import prepare_subject; \
+  prepare_subject('data/raw/CLA-SubjectA-160108-3St-LRHand.mat', 0)"
+```
+
+This cleans the session, computes per-session normalization statistics, and writes
+`train_<n>.pickle` / `val_<n>.pickle` voxel batches to `data/VideoBatches/subject0/`.
+
+### Train
+
+```bash
+PYTHONPATH=src python -m eeg_classifier.train --help
+PYTHONPATH=src python -m eeg_classifier.train \
+  --model cnn_lstm --epochs 25 --device cpu --data-dir data/VideoBatches
+```
+
+Flags: `--model` (`cnn_lstm` default; `cnn` is an alias, `lstm` has no standalone
+training path), `--name` (checkpoint name), `--net` (pickle to continue training from),
+`--epochs`, `--batch-size` (accepted for parity; the loop always stacks 4 x 200-frame
+sequences), `--device` (`cuda` or `cpu`, defaults to cuda when available), `--lr`,
+`--weight-decay`, `--momentum`, `--start`/`--end` (subject index range; subject 7 is
+always skipped), `--data-dir`, `--checkpoint-dir` (default `results/checkpoints`).
+
+### Evaluate
+
+```bash
+PYTHONPATH=src python -m eeg_classifier.evaluate \
+  --checkpoint results/checkpoints/CNN-LSTM-1.pickle --data-dir data/VideoBatches
+```
+
+Prints overall and per-subject accuracy plus a confusion matrix. Flags: `--checkpoint`
+(required), `--split` (`train` or `val`, default `val`), `--device`, `--start`/`--end`,
+`--data-dir`.
+
+### Visualize a voxel frame
+
+```bash
+PYTHONPATH=src python -m eeg_classifier.visualize --demo \
+  --output assets/brain_activation.png
+```
+
+## Dataset
+
+The project uses the CLA subset of the motor-imagery dataset by
+[Kaya et al. (2018), Scientific Data](https://doi.org/10.1038/sdata.2018.211), downloaded
+from the official [Figshare collection](https://doi.org/10.6084/m9.figshare.c.3917698)
+(17 CLA session files as MATLAB `.mat`, ~40 MB each). Each session contains 22 EEG
+channels sampled at 200 Hz and a marker channel with the class codes:
+0 no task (blank), 1 left hand, 2 right hand, 3 passive. Subject 7 was excluded from all
+runs.
+
+## Repository structure
+
+```text
+.
+├── assets/                             figures used in this README
+├── docs/paper.pdf                      project paper (methodology and results)
+├── notebooks/01_original_colab.ipynb   original 2021 Colab notebook, kept as-is
+├── results/results.md                  per-subject results from the original runs
+├── scripts/download_data.py            dataset downloader (Figshare)
+└── src/eeg_classifier/
+    ├── data.py        session cleaning, 3D voxel reconstruction, batch pickles
+    ├── models.py      SimpleLSTM and eeg_shallow_CNN (3D CNN + LSTM head)
+    ├── train.py       training CLI
+    ├── evaluate.py    evaluation CLI with per-subject accuracy and confusion matrix
+    └── visualize.py   3D scatter rendering of voxel frames
+```
+
+## Limitations and learnings
+
+- 22 electrodes instead of the 64 used in comparable datasets produce a very sparse 3D
+  reconstruction; low spatial resolution is the most plausible ceiling for this approach.
+- The 3D expansion grew the dataset to roughly 400 GB. Batches had to be streamed
+  dynamically from cloud storage during Colab training, and one epoch took about an hour.
+- The original notebook had a real bug: validation batches were written from the training
+  loader, so the `val_*` files silently contained training data. The 2026 refactor fixed
+  the split.
+- The dataset's label quality was never independently verified; at the time of the
+  original project it had no citations.
+- The standalone CNN and LSTM numbers in the paper predate this package: the current CLI
+  trains and evaluates the `cnn_lstm` model only.
+
+## Paper and citation
+
+The full methodology, training details, and result tables are in the accompanying paper:
+[docs/paper.pdf](docs/paper.pdf).
+
+```bibtex
+@article{kaya2018large,
+  title   = {A large electroencephalographic motor imagery dataset for
+             electroencephalographic brain computer interfaces},
+  author  = {Kaya, Murat and Binli, Mustafa Kemal and Ozbay, Erkan and
+             Yanar, Hilmi and Mishchenko, Yuriy},
+  journal = {Scientific Data},
+  volume  = {5},
+  pages   = {180211},
+  year    = {2018},
+  doi     = {10.1038/sdata.2018.211}
+}
+
+@software{mouroum2021eeg,
+  title  = {End-to-End-EEG-Classifier},
+  author = {Mouroum, Marvin},
+  year   = {2021},
+  note   = {University project; refactored for release in 2026}
+}
+```
+
+## Historical note
+
+The code was written in 2021 as a university project and trained on Google Colab. In 2026
+it was refactored from the original notebook into a clean package without changing the
+model semantics, so the historical results stay comparable. The original notebook is
+preserved unchanged in [notebooks/01_original_colab.ipynb](notebooks/01_original_colab.ipynb).
