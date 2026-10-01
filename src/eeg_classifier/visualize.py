@@ -29,7 +29,14 @@ DEMO_ACTIVATION = np.round(np.sin(np.linspace(0.0, 3.0, 22)) * 50, 1)
 
 def plot_brain_activation(activation: np.ndarray,
                           output_path: Path | str = DEFAULT_OUTPUT,
-                          electrode_positions: np.ndarray = ELECTRODE_POSITIONS) -> Path:
+                          electrode_positions: np.ndarray = ELECTRODE_POSITIONS,
+                          *,
+                          figsize: tuple[float, float] = (8.0, 8.0),
+                          dpi: int = 150,
+                          title: str | None = "Brain activation (voxel reconstruction)",
+                          show_axes: bool = False,
+                          view: tuple[float, float] | None = (22, -55),
+                          point_size: float = 40.0) -> Path:
     """Render one voxel frame as a grayscale 3D scatter plot.
 
     ``activation`` holds one value per electrode (shape ``(22,)``). The
@@ -67,26 +74,37 @@ def plot_brain_activation(activation: np.ndarray,
                  & (shifted.min(axis=1) >= 0))
     electrode_points = shifted[in_bounds]
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(1, 1, 1, projection="3d")
 
     if points.size:
         ax.scatter(points[:, 0], points[:, 1], points[:, 2],
                    c=intensities / max_intensity, cmap="Greys",
-                   alpha=0.8, edgecolors="none", s=30)
+                   alpha=0.8, edgecolors="none", s=point_size * 0.75)
 
     if electrode_points.size:
         ax.scatter(electrode_points[:, 0], electrode_points[:, 1], electrode_points[:, 2],
-                   c="0.15", edgecolors="none", s=60)
+                   c="0.15", edgecolors="none", s=point_size * 1.5)
 
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    plt.title("Brain activation (voxel reconstruction)")
+    if view is not None:
+        ax.view_init(elev=view[0], azim=view[1])
+    ax.set_box_aspect((16, 22, 12))
+
+    if show_axes:
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+    else:
+        ax.set_axis_off()
+
+    if title:
+        ax.set_title(title, fontsize=13, color="0.25", pad=12)
+
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.94, bottom=0.02)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=dpi, facecolor="white", transparent=False)
     plt.close(fig)
 
     return output_path

@@ -13,13 +13,17 @@ local paths under ``data/`` by default (relative to the project root,
 overridable via parameters).
 """
 
+from __future__ import annotations
+
 import math
 import pickle
 from pathlib import Path
 
 import numpy as np
-import scipy.io as sio
-import torch
+
+# NOTE: torch and scipy.io are imported lazily inside the functions that
+# need them so that visualization-only usage (numpy + matplotlib) does
+# not require the heavy dependencies.
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
@@ -68,6 +72,8 @@ def load_file(path: Path) -> tuple[np.ndarray, np.ndarray]:
     Returns ``(data, labels)`` with all valid chunks stacked together.
     """
     path = Path(path)
+
+    import scipy.io as sio
 
     mat = sio.loadmat(path, squeeze_me=True, struct_as_record=False)
 
@@ -189,6 +195,8 @@ def get_data(data: np.ndarray, batch_size: int = 256,
     Quirk kept from the notebook: the first half is used for training and
     the second half (minus the final sample) for validation.
     """
+    import torch
+
     num_samples = len(data)
     training_samples = int(num_samples * 0.5 + 1)
     num_samples - training_samples
@@ -230,6 +238,8 @@ def make_video(video_data: np.ndarray) -> np.ndarray:
 def get_training_data(train: tuple[np.ndarray, np.ndarray],
                       mean: float, std: float) -> tuple[torch.Tensor, np.ndarray]:
     """Build the normalized ``[batch, 1, 12, 16, 22]`` voxel stream for a batch."""
+    import torch
+
     stream = np.zeros([train[0].shape[0], 1, 12, 16, 22])
 
     for i, image in enumerate(train[0]):
